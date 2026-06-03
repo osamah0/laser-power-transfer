@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Laser Wireless Power Transfer — End-to-End Simulator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg:       #0b0e14;
+    --bg2:      #111520;
+    --bg3:      #171c2b;
+    --border:   #1e2a3a;
+    --border2:  #253347;
+    --text:     #c8d8ec;
+    --text2:    #6a84a0;
+    --text3:    #3d5270;
+    --accent:   #2d7dd2;
+    --accent2:  #1a4f8a;
+    --green:    #27c485;
+    --amber:    #e8a030;
+    --red:      #e05050;
+    --purple:   #8b67e0;
+    --teal:     #2ac9c9;
+    --mono:     'IBM Plex Mono', monospace;
+    --sans:     'IBM Plex Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* ── header ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 20px 32px;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    background: var(--bg2);
+  }
+  header h1 {
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: .04em;
+  }
+  header .subtitle {
+    font-size: 12px;
+    color: var(--text2);
+  }
+  .badge {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 4px 10px;
+    border: 1px solid var(--border2);
+    border-radius: 3px;
+    color: var(--text2);
+  }
+
+  /* ── tabs ── */
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    padding: 0 32px;
+  }
+  .tab {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .05em;
+    padding: 12px 20px;
+    cursor: pointer;
+    color: var(--text2);
+    border-bottom: 2px solid transparent;
+    transition: color .2s, border-color .2s;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ── layout ── */
+  .main { max-width: 1100px; margin: 0 auto; padding: 28px 32px; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .row-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+  .row-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+
+  /* ── cards ── */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 18px 20px;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .08em;
+    color: var(--text2);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  /* ── metric cards ── */
+  .metric {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+  }
+  .metric-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--text2);
+    margin-bottom: 8px;
+  }
+  .metric-value {
+    font-family: var(--mono);
+    font-size: 24px;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1;
+  }
+  .metric-unit { font-size: 13px; color: var(--text2); }
+  .metric-sub {
+    font-size: 11px;
+    color: var(--text3);
+    margin-top: 5px;
+  }
+
+  /* ── controls ── */
+  .ctrl {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .ctrl label {
+    font-size: 12px;
+    color: var(--text2);
+    min-width: 180px;
+    flex-shrink: 0;
+  }
+  .ctrl input[type=range] {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 3px;
+    background: var(--border2);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  .ctrl input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: 2px solid var(--bg);
+    box-shadow: 0 0 0 1px var(--accent2);
+  }
+  .ctrl select {
+    flex: 1;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 6px 10px;
+    border-radius: 4px;
+    outline: none;
+    cursor: pointer;
+  }
+  .ctrl select:focus { border-color: var(--accent); }
+  .ctrl .val {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--accent);
+    min-width: 72px;
+    text-align: right;
+  }
+
+  /* ── pipeline ── */
+  .pipeline {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .stage { flex: 1; min-width: 100px; }
+  .stage-box {
+    border-radius: 5px;
+    padding: 10px 8px;
+    text-align: center;
+    border: 1px solid;
+  }
+  .stage-label { font-size: 10px; font-family: var(--mono); letter-spacing: .04em; margin-bottom: 4px; }
+  .stage-eff { font-size: 16px; font-weight: 500; font-family: var(--mono); }
+  .stage-pwr { font-size: 10px; color: var(--text2); margin-top: 3px; }
+  .arrow { color: var(--text3); font-size: 16px; flex-shrink: 0; padding: 0 2px; }
+
+  /* ── bars ── */
+  .bar-wrap { margin-bottom: 10px; }
+  .bar-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text2);
+    margin-bottom: 4px;
+    font-family: var(--mono);
+  }
+  .bar-bg {
+    background: var(--bg3);
+    border-radius: 2px;
+    height: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .bar-fill { height: 100%; border-radius: 2px; transition: width .4s ease; }
+
+  /* ── alerts ── */
+  .alert {
+    border-radius: 5px;
+    padding: 10px 14px;
+    font-size: 12px;
+    margin-top: 12px;
+    font-family: var(--mono);
+    display: none;
+    border-left: 3px solid;
+  }
+  .alert-warn { background: #2a1e08; border-color: var(--amber); color: var(--amber); }
+  .alert-danger { background: #200f0f; border-color: var(--red); color: var(--red); }
+
+  /* ── chart ── */
+  .chart-wrap { position: relative; width: 100%; height: 220px; }
+
+  /* ── compare table ── */
+  .cmp-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    gap: 16px;
+  }
+  .cmp-row:last-child { border-bottom: none; }
+  .cmp-lbl { color: var(--text2); min-width: 180px; font-family: var(--mono); font-size: 11px; }
+  .cmp-vals { display: flex; gap: 16px; }
+  .cmp-laser { color: var(--accent); }
+  .cmp-micro { color: var(--amber); }
+
+  /* ── legend dots ── */
+  .legend { display: flex; gap: 20px; margin-bottom: 10px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text2); font-family: var(--mono); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+  /* ── use case cards ── */
+  .cases-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .case-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+  }
+  .case-card:hover { border-color: var(--border2); }
+  .case-title {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .case-icon {
+    width: 28px; height: 28px;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .case-desc { font-size: 12px; color: var(--text2); line-height: 1.6; margin-bottom: 10px; }
+  .case-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+  .tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 3px;
+    border: 1px solid;
+  }
+  .tag-blue { color: var(--accent); border-color: var(--accent2); background: #0d1e33; }
+  .tag-gray { color: var(--text2); border-color: var(--border2); background: var(--bg3); }
+
+  /* ── footer ── */
+  footer {
+    margin-top: 40px;
+    padding: 16px 32px;
+    border-top: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⟁ LASER POWER TRANSFER SIMULATOR</h1>
+  <span class="subtitle">End-to-end optical wireless power transmission model</span>
+  <span class="badge">OWPT · Research Tool</span>
+</header>
+
+<div class="tabs">
+  <button class="tab active" onclick="setTab('sim')">01 · Simulator</button>
+  <button class="tab" onclick="setTab('compare')">02 · Laser vs Microwaves</button>
+  <button class="tab" onclick="setTab('cases')">03 · Use Cases</button>
+  <button class="tab" onclick="setTab('theory')">04 · Theory & Equations</button>
+</div>
+
+<div class="main">
+
+  <!-- ══ TAB 1: SIMULATOR ══ -->
+  <div class="panel active" id="panel-sim">
+
+    <div class="row-2">
+      <div class="card">
+        <div class="card-title">Laser source</div>
+        <div class="ctrl">
+          <label>Input power (W)</label>
+          <input type="range" id="p_in" min="100" max="5000" step="50" value="1000" oninput="calc()">
+          <span class="val" id="v_pin">1000 W</span>
+        </div>
+        <div class="ctrl">
+          <label>Wall-plug efficiency (%)</label>
+          <input type="range" id="wpe" min="20" max="70" step="1" value="45" oninput="calc()">
+          <span class="val" id="v_wpe">45%</span>
+        </div>
+        <div class="ctrl">
+          <label>Wavelength / source type</label>
+          <select id="wl" onchange="calc()">
+            <option value="0.88">808 nm — high-power diode</option>
+            <option value="0.92" selected>975 nm — fiber pump</option>
+            <option value="0.94">1064 nm — Nd:YAG / fiber</option>
+            <option value="0.97">1550 nm — telecom (safest)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Atmospheric channel</div>
+        <div class="ctrl">
+          <label>Propagation distance (km)</label>
+          <input type="range" id="dist" min="0.1" max="20" step="0.1" value="2" oninput="calc()">
+          <span class="val" id="v_dist">2.0 km</span>
+        </div>
+        <div class="ctrl">
+          <label>Weather / visibility</label>
+          <select id="weather" onchange="calc()">
+            <option value="0.05">Clear sky (σ = 0.05 /km)</option>
+            <option value="0.1" selected>Light haze (σ = 0.1 /km)</option>
+            <option value="0.5">Heavy haze (σ = 0.5 /km)</option>
+            <option value="1.0">Light fog (σ = 1.0 /km)</option>
+            <option value="5.0">Dense fog (σ = 5.0 /km)</option>
+            <option value="0.2">Light rain (σ = 0.2 /km)</option>
+            <option value="0.6">Heavy rain (σ = 0.6 /km)</option>
+          </select>
+        </div>
+        <div class="ctrl">
+          <label>Pointing / tracking loss (%)</label>
+          <input type="range" id="track" min="1" max="30" step="1" value="5" oninput="calc()">
+          <span class="val" id="v_track">5%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Photovoltaic converter (LPC)</div>
+      <div class="row-2" style="margin-bottom:0">
+        <div class="ctrl" style="margin-bottom:0">
+          <label>LPC material / architecture</label>
+          <select id="lpc" onchange="calc()">
+            <option value="0.44">GaAs single-junction (η = 44%)</option>
+            <option value="0.453" selected>InGaAs/GaAs (η = 45.3%) — 1064 nm</option>
+            <option value="0.61">GaAs 12-junction stack (η = 61%)</option>
+            <option value="0.60">GaAs 20-junction vertical (η = 60%)</option>
+            <option value="0.30">Silicon (η = 30%) — low cost</option>
+            <option value="0.35">GaSb (η = 35%) — NASA lunar</option>
+          </select>
+        </div>
+        <div class="ctrl" style="margin-bottom:0">
+          <label>Operating temperature (°C)</label>
+          <input type="range" id="temp" min="-20" max="120" step="5" value="25" oninput="calc()">
+          <span class="val" id="v_temp">25°C</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Power flow pipeline — Beer-Lambert model</div>
+      <div class="pipeline" id="pipeline"></div>
+      <div class="alert alert-warn" id="warn-fog">
+        ⚠ Dense fog detected — severe Mie scattering. Consider microwave alternative or airborne relay node.
+      </div>
+      <div class="alert alert-danger" id="warn-dist">
+        ✕ Critical: high attenuation coefficient × long range — beam nearly fully attenuated before receiver.
+      </div>
+    </div>
+
+    <div class="row-4">
+      <div class="metric">
+        <div class="metric-label">Received DC power</div>
+        <div class="metric-value" id="m_pout">— <span class="metric-unit">W</span></div>
+        <div class="metric-sub">at photovoltaic receiver</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">End-to-end efficiency</div>
+        <div class="metric-value" id="m_eff">—<span class="metric-unit">%</span></div>
+        <div class="metric-sub">wall-plug → receiver DC</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Atmospheric transmission</div>
+        <div class="metric-value" id="m_atm">—<span class="metric-unit">%</span></div>
+        <div class="metric-sub">Beer-Lambert × λ factor</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Laser beam power</div>
+        <div class="metric-value" id="m_beam">— <span class="metric-unit">W</span></div>
+        <div class="metric-sub">after wall-plug conversion</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Stage-by-stage efficiency breakdown</div>
+      <div id="bars"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Received power vs propagation distance</div>
+      <div class="legend">
+        <span class="legend-item"><span class="legend-dot" style="background:#2d7dd2"></span>Received DC power (W) — current settings</span>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="distChart" role="img" aria-label="Line chart of received DC power versus propagation distance in kilometres"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══ TAB 2: COMPARE ══ -->
+  <div class="panel" id="panel-compare">
+    <div class="card">
+      <div class="card-title">Relative performance — laser vs microwave</div>
+      <div class="legend" style="margin-bottom:14px">
+        <span class="legend-item"><span class="legend-dot" style="background:#2d7dd2"></span>Laser (OWPT)</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#e8a030"></span>Microwaves (MPT)</span>
+      </div>
+      <div id="cmp-bars" style="margin-bottom:20px"></div>
+      <div class="card-title" style="margin-top:8px">Parameter comparison</div>
+      <div id="cmp-rows"></div>
+    </div>
+  </div>
+
+  <!-- ══ TAB 3: USE CASES ══ -->
+  <div class="panel" id="panel-cases">
+    <div class="cases-grid" id="cases-grid"></div>
+  </div>
+
+  <!-- ══ TAB 4: THEORY ══ -->
+  <div class="panel" id="panel-theory">
+    <div class="card">
+      <div class="card-title">Core equations used in this simulator</div>
+
+      <div style="margin-bottom:20px">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--accent);margin-bottom:6px">1. BEER-LAMBERT ATMOSPHERIC ATTENUATION</div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:14px 16px;font-family:var(--mono);font-size:13px;color:var(--teal);line-height:2">
+          P(R) = P(0) · e<sup>−σR</sup> · η<sub>λ</sub>
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-top:8px;line-height:1.8">
+          P(R) = beam power at distance R &nbsp;|&nbsp; P(0) = initial beam power<br>
+          σ = attenuation coefficient (km⁻¹) — depends on weather<br>
+          η<sub>λ</sub> = wavelength transmission factor (0.88–0.97 depending on λ)
+        </div>
+      </div>
+
+      <div style="margin-bottom:20px">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--accent);margin-bottom:6px">2. RAIN ATTENUATION (empirical)</div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:14px 16px;font-family:var(--mono);font-size:13px;color:var(--teal)">
+          α<sub>R</sub> = a · J<sup>b</sup>
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-top:8px;line-height:1.8">
+          J = rainfall rate (mm/h) &nbsp;|&nbsp; Ruby laser: a = 0.16 ± 0.04, b = 0.74 ± 0.12<br>
+          Note: rain attenuates less than fog because forward Mie scattering keeps energy on-axis.
+        </div>
+      </div>
+
+      <div style="margin-bottom:20px">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--accent);margin-bottom:6px">3. LPC TEMPERATURE CORRECTION</div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:14px 16px;font-family:var(--mono);font-size:13px;color:var(--teal)">
+          η<sub>LPC</sub>(T) = η<sub>base</sub> · [1 − 0.001 · (T − 25)]
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-top:8px;line-height:1.8">
+          Temperature coefficient: −0.1% / °C &nbsp;|&nbsp; V<sub>oc</sub> coefficient: −1.6 mV / °C<br>
+          Validated for InGaAs/GaAs cells over 20–100°C range (±0.5% stability over 216 h)
+        </div>
+      </div>
+
+      <div style="margin-bottom:20px">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--accent);margin-bottom:6px">4. END-TO-END EFFICIENCY</div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:14px 16px;font-family:var(--mono);font-size:13px;color:var(--teal)">
+          η<sub>total</sub> = η<sub>WPE</sub> · η<sub>ATM</sub> · (1 − η<sub>track-loss</sub>) · η<sub>LPC</sub>(T)
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-top:8px;line-height:1.8">
+          η<sub>WPE</sub> = laser wall-plug efficiency &nbsp;|&nbsp; η<sub>ATM</sub> = atmospheric transmission<br>
+          Typical range: 3–20% (ground); up to 45% optimised (space / vacuum)
+        </div>
+      </div>
+
+      <div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--accent);margin-bottom:6px">5. LPC MULTI-JUNCTION VOLTAGE STACKING</div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:14px 16px;font-family:var(--mono);font-size:13px;color:var(--teal)">
+          V<sub>total</sub> = N · V<sub>junction</sub> &nbsp;&nbsp;|&nbsp;&nbsp; I<sub>total</sub> = I<sub>junction</sub> / N &nbsp;&nbsp;|&nbsp;&nbsp; P<sub>ohmic</sub> ∝ I²·R
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-top:8px;line-height:1.8">
+          N = number of stacked p/n junctions (tested: up to 20 for GaAs)<br>
+          Reduces ohmic losses at high irradiance (&gt;150 W/cm²). GaAs 12-junction: η = 61% at 40 W, 811 nm.
+        </div>
+      </div>
+
+    </div>
+
+    <div class="card">
+      <div class="card-title">Key safety thresholds — IEC 60825-1 / ANSI Z136.1</div>
+      <div id="safety-rows"></div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <span>Model based on: Beer-Lambert law · IEC 60825-1 · InGaAs/GaAs LPC data (Photon. Res. 2023)</span>
+  <span>DARPA POWER programme · PowerLight Technologies · JAXA L-SSPS · NASA NIAC</span>
+  <span>Simulator — Research / Educational use</span>
+</footer>
+
+<script>
+let distChart = null;
+
+function calc() {
+  const pIn    = +document.getElementById('p_in').value;
+  const wpe    = +document.getElementById('wpe').value / 100;
+  const sigma  = +document.getElementById('weather').value;
+  const dist   = +document.getElementById('dist').value;
+  const trackL = +document.getElementById('track').value / 100;
+  const lpcBase= +document.getElementById('lpc').value;
+  const temp   = +document.getElementById('temp').value;
+  const wlEff  = +document.getElementById('wl').value;
+
+  document.getElementById('v_pin').textContent   = pIn + ' W';
+  document.getElementById('v_wpe').textContent   = Math.round(+document.getElementById('wpe').value) + '%';
+  document.getElementById('v_dist').textContent  = dist.toFixed(1) + ' km';
+  document.getElementById('v_track').textContent = Math.round(+document.getElementById('track').value) + '%';
+  document.getElementById('v_temp').textContent  = temp + '°C';
+
+  const pBeam       = pIn * wpe;
+  const atmEff      = Math.exp(-sigma * dist) * wlEff;
+  const pAfterAtm   = pBeam * atmEff;
+  const pAfterTrack = pAfterAtm * (1 - trackL);
+  const tempCorr    = 1 + (-0.001) * (temp - 25);
+  const lpcEff      = Math.min(0.95, Math.max(0.01, lpcBase * tempCorr));
+  const pOut        = pAfterTrack * lpcEff;
+  const totalEff    = pOut / pIn;
+
+  // metrics
+  document.getElementById('m_pout').innerHTML =
+    pOut >= 1000
+      ? (pOut/1000).toFixed(2) + ' <span class="metric-unit">kW</span>'
+      : Math.round(pOut) + ' <span class="metric-unit">W</span>';
+  document.getElementById('m_eff').innerHTML  = (totalEff*100).toFixed(1) + '<span class="metric-unit">%</span>';
+  document.getElementById('m_atm').innerHTML  = (atmEff*100).toFixed(1) + '<span class="metric-unit">%</span>';
+  document.getElementById('m_beam').innerHTML = Math.round(pBeam) + ' <span class="metric-unit">W</span>';
+
+  // warnings
+  document.getElementById('warn-fog').style.display  = sigma >= 1.0 ? 'block' : 'none';
+  document.getElementById('warn-dist').style.display = (sigma >= 1.0 && dist > 5) ? 'block' : 'none';
+
+  // pipeline
+  const stageData = [
+    { label:'Laser source',    eff: wpe,        color:'#2d7dd2', pIn: pIn,         pOut: pBeam },
+    { label:'Atmosphere',      eff: atmEff,      color:'#e8a030', pIn: pBeam,       pOut: pAfterAtm },
+    { label:'Tracking',        eff: 1-trackL,    color:'#27c485', pIn: pAfterAtm,   pOut: pAfterTrack },
+    { label:'LPC converter',   eff: lpcEff,      color:'#8b67e0', pIn: pAfterTrack, pOut: pOut },
+  ];
+  const pipe = document.getElementById('pipeline');
+  pipe.innerHTML = stageData.map((s, i) => {
+    const arrow = i > 0 ? '<span class="arrow">›</span>' : '';
+    return `${arrow}<div class="stage">
+      <div class="stage-box" style="background:${s.color}18;border-color:${s.color}55">
+        <div class="stage-label" style="color:${s.color}">${s.label}</div>
+        <div class="stage-eff" style="color:${s.color}">${(s.eff*100).toFixed(1)}%</div>
+        <div class="stage-pwr">${Math.round(s.pIn)}→${Math.round(s.pOut)} W</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // efficiency bars
+  const barData = [
+    { label:'Wall-plug efficiency (laser source)', val: wpe*100,          color:'#2d7dd2' },
+    { label:'Atmospheric transmission (Beer-Lambert)', val: atmEff*100,   color:'#e8a030' },
+    { label:'Beam tracking efficiency',            val: (1-trackL)*100,   color:'#27c485' },
+    { label:'LPC photovoltaic conversion (temp-corrected)', val: lpcEff*100, color:'#8b67e0' },
+    { label:'Total end-to-end efficiency',         val: totalEff*100,     color:'#e05050' },
+  ];
+  document.getElementById('bars').innerHTML = barData.map(b => `
+    <div class="bar-wrap">
+      <div class="bar-label"><span>${b.label}</span><span>${b.val.toFixed(1)}%</span></div>
+      <div class="bar-bg"><div class="bar-fill" style="width:${Math.min(100,b.val)}%;background:${b.color}"></div></div>
+    </div>`).join('');
+
+  // distance chart
+  updateDistChart(pIn, wpe, sigma, wlEff, trackL, lpcEff);
+}
+
+function updateDistChart(pIn, wpe, sigma, wlEff, trackL, lpcEff) {
+  const pBeam = pIn * wpe;
+  const labels = [], data = [];
+  for (let d = 0.1; d <= 20.05; d += 0.25) {
+    labels.push(d.toFixed(1));
+    const a = Math.exp(-sigma * d) * wlEff;
+    data.push(+(pBeam * a * (1 - trackL) * lpcEff).toFixed(1));
+  }
+  const ctx = document.getElementById('distChart');
+  if (distChart) distChart.destroy();
+  distChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Received DC power (W)',
+        data,
+        borderColor: '#2d7dd2',
+        backgroundColor: '#2d7dd215',
+        fill: true,
+        pointRadius: 0,
+        borderWidth: 2,
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: {
+          title: { display: true, text: 'Distance (km)', color: '#6a84a0', font: { family: "'IBM Plex Mono'", size: 11 } },
+          ticks: { maxTicksLimit: 10, color: '#6a84a0', font: { family: "'IBM Plex Mono'", size: 10 } },
+          grid: { color: '#1e2a3a' }
+        },
+        y: {
+          title: { display: true, text: 'Received DC power (W)', color: '#6a84a0', font: { family: "'IBM Plex Mono'", size: 11 } },
+          beginAtZero: true,
+          ticks: { color: '#6a84a0', font: { family: "'IBM Plex Mono'", size: 10 } },
+          grid: { color: '#1e2a3a' }
+        }
+      }
+    }
+  });
+}
+
+function setTab(t) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + t).classList.add('active');
+  const idx = { sim: 0, compare: 1, cases: 2, theory: 3 };
+  document.querySelectorAll('.tab')[idx[t]].classList.add('active');
+  if (t === 'compare') renderCompare();
+  if (t === 'cases')   renderCases();
+  if (t === 'theory')  renderTheory();
+}
+
+function renderCompare() {
+  const cmpBars = [
+    { label: 'End-to-end efficiency',    laser: 15, micro: 65 },
+    { label: 'Weather robustness',        laser: 20, micro: 95 },
+    { label: 'Aperture size (normalised)',laser: 5,  micro: 80 },
+    { label: 'Safety clearance ease',    laser: 25, micro: 75 },
+    { label: 'Cost at 100 MW scale (inv)',laser: 70, micro: 40 },
+  ];
+  document.getElementById('cmp-bars').innerHTML = cmpBars.map(b => `
+    <div class="bar-wrap">
+      <div class="bar-label">
+        <span>${b.label}</span>
+        <span><span class="cmp-laser">Laser ${b.laser}%</span> / <span class="cmp-micro">Microwave ${b.micro}%</span></span>
+      </div>
+      <div style="display:flex;gap:3px;height:8px;border-radius:2px;overflow:hidden;background:#111520;border:1px solid #1e2a3a">
+        <div style="width:${b.laser}%;background:#2d7dd2"></div>
+        <div style="width:${b.micro - b.laser}%;background:#e8a03060"></div>
+      </div>
+    </div>`).join('');
+
+  const rows = [
+    ['End-to-end efficiency',    '10–20% (up to 45% in vacuum)', '50–85% (rectenna)'],
+    ['Fog / cloud penetration',  'Severe Mie attenuation',        'Fully weather-agnostic'],
+    ['Transmitter aperture',     'cm-scale (compact)',            'Metre–kilometre arrays'],
+    ['Safety class (IEC 60825)', 'Class 4 — high-hazard',        'ICNIRP ≤ 50 W/m²'],
+    ['Optimal range',            '0.1 – 20 km',                  '1 – 1000+ km'],
+    ['Primary application',      'UAV, lunar, low-mass payloads', 'SBSP, grid-scale transmission'],
+    ['Cost at 100 MW (relative)','~×1 (baseline)',                '~×2.5 (larger arrays)'],
+    ['Tracking complexity',      'High (adaptive optics / PCM)',  'Moderate (phased array)'],
+  ];
+  document.getElementById('cmp-rows').innerHTML = rows.map(r => `
+    <div class="cmp-row">
+      <span class="cmp-lbl">${r[0]}</span>
+      <div class="cmp-vals">
+        <span class="cmp-laser">${r[1]}</span>
+        <span class="cmp-micro">${r[2]}</span>
+      </div>
+    </div>`).join('');
+}
+
+function renderCases() {
+  const cases = [
+    {
+      icon: '✈', title: 'Military UAV — extended endurance',
+      desc: 'PowerLight + Kraus Hamdani / CENTCOM: 1 kW delivered to K1000ULE fixed-wing UAV at 5,000 ft (Shaw AFB). Eliminates battery-swap "vulnerability window" in forward operations.',
+      eff: '~15%', range: '1–5 km', wl: '975 nm'
+    },
+    {
+      icon: '📡', title: '5G tower independent power',
+      desc: 'Ericsson + PowerLight (Seattle): first 5G mmWave base station running with zero grid connection. Hundreds of watts wirelessly over hundreds of metres. Active safety shield.',
+      eff: '~12%', range: '0.1–1 km', wl: '975 nm'
+    },
+    {
+      icon: '🌑', title: 'Lunar crater base — NASA NIAC',
+      desc: 'GaSb photovoltaic receivers at permanently shadowed crater floor receive 105 W from sunlit rim transmitter. 6 kg laser system + GaSb LPC. Replaces RTG nuclear generator.',
+      eff: '45%', range: '~1 km', wl: '1064 nm'
+    },
+    {
+      icon: '🛰', title: 'Space-based solar power (SBSP)',
+      desc: 'JAXA L-SSPS: 1070 nm CW laser, compact satellite form factor. Caltech SSPD-1 / MAPLE experiment: demonstrated in-orbit phased-array beam steering toward Earth.',
+      eff: '~20%', range: 'GEO orbit', wl: '1070 nm'
+    },
+    {
+      icon: '♀', title: 'Venus atmosphere probe',
+      desc: 'NASA NIAC concept: airship cruising Venus cloud layer beams power down to lander on 460°C surface. Enables multi-hour surface operation without nuclear power source.',
+      eff: '~10%', range: '~10 km', wl: '1064 nm'
+    },
+    {
+      icon: '⚡', title: 'DARPA POWER — world record',
+      desc: 'HELSTF facility, New Mexico: 800 W over 8.6 km (previous record: 230 W / 1.7 km). PRAD parabolic receiver with internal PV array. >1 MJ total energy transferred in test campaign.',
+      eff: '>20%', range: '8.6 km', wl: 'classified'
+    },
+  ];
+  document.getElementById('cases-grid').innerHTML = cases.map(c => `
+    <div class="case-card">
+      <div class="case-title">
+        <span class="case-icon">${c.icon}</span>
+        ${c.title}
+      </div>
+      <div class="case-desc">${c.desc}</div>
+      <div class="case-tags">
+        <span class="tag tag-blue">η ${c.eff}</span>
+        <span class="tag tag-gray">${c.range}</span>
+        <span class="tag tag-gray">λ ${c.wl}</span>
+      </div>
+    </div>`).join('');
+}
+
+function renderTheory() {
+  const safetyRows = [
+    ['Class 1',  'Safe under all reasonable use',           '≤ 0.5 W (CW)',        'N/A'],
+    ['Class 1M', 'Safe — hazardous with optical instruments','≤ 0.5 W (CW)',        'N/A'],
+    ['Class 2',  'Visible only; blink reflex protects',     '≤ 1 mW',              '< 1 m'],
+    ['Class 3B', 'Hazardous — direct beam to eye',          '5 mW – 500 mW',       '1–100 m'],
+    ['Class 4',  'HIGH HAZARD — skin + fire risk',          '> 500 mW (all λ)',     '>100 m'],
+  ];
+  document.getElementById('safety-rows').innerHTML = safetyRows.map((r, i) => `
+    <div class="cmp-row" style="${i===4?'border-color:#e0505055':''};background:${i===4?'#200f0f':'transparent'}">
+      <span class="cmp-lbl" style="${i===4?'color:#e05050':''}">${r[0]}</span>
+      <span style="font-size:11px;color:${i===4?'#e05050':'var(--text2)'};">${r[1]}</span>
+      <span style="font-family:var(--mono);font-size:11px;color:var(--teal)">${r[2]}</span>
+      <span style="font-family:var(--mono);font-size:11px;color:var(--text2)">NOHD ${r[3]}</span>
+    </div>`).join('');
+}
+
+calc();
+</script>
+</body>
+</html>
